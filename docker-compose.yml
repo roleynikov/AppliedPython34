@@ -1,0 +1,44 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres
+    restart: always
+    container_name: fastapi_short_link-db-1
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASS}
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_HOST_AUTH_METHOD=trust
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} || exit 0"]
+      interval: 15s
+      retries: 15
+      timeout: 15s
+
+  redis:
+    image: redis
+    container_name: fastapi_short_link-redis-1
+    restart: always
+    ports:
+      - "6380:6379"
+
+  app:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_HOST=${REDIS_HOST}
+    command: ["sh", "-c", "sleep 5 && uvicorn main:app --host 0.0.0.0 --port 8000"]
